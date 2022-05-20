@@ -9,7 +9,6 @@ from gpflow import Parameter
 from scipy.stats import multivariate_normal
 
 from .tools.kernels import create_linear, create_period, create_rbf, Interaction, Linear, Periodic, kernel_to_string
-from .heartsteps.HSGP import HSGP
 
 def log_marginal_likelihood(X, y, model, mean_function = gpf.mean_functions.Zero(), heartsteps = False):
     kernel = model['structure']

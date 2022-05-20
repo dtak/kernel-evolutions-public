@@ -13,10 +13,8 @@ from .tools.utils import get_data_stats
 from .tools.kernels import create_linear, create_period, create_rbf, Interaction, Linear, Periodic
 from .DirichletProcess import MarginalGibbsSampler
 from .KernelSelection import BIC, MAP
-#from .KernelSelection import MAP as BIC
 
-# TODO: should we add a small constant to the variance? 
-class TrajectoryModelFull: 
+class TrajectoryModel: 
     def __init__(self, 
             X_list,                     # dictionary indexed by (m, t) of the data matrices 
             y_list,                     # dictionary indexed by (m, t) of the prediction targets
@@ -50,7 +48,6 @@ class TrajectoryModelFull:
         self.lml = likelihood_func
         self.lml_params = likelihood_params
         # hyperparameters
-#        self.Hyperparameters = hyper_constructor
         self.hyper_priors = hyper_priors # TODO: Is this needed? can we replace by passing list of kernels?
         self.adapt_noise_prior = adapt_noise_prior
         
@@ -86,7 +83,6 @@ class TrajectoryModelFull:
         '''
         assigns customers to tables
         '''
-        print("SEATING CUSTOMERS")
         for m in range(self.M): # for each task
             #print("Seating customer {}".format(m))
             for t in range(self.T[m] -1, -1, -1): # for each time point, in reverse TODO: check if needs + 1
@@ -185,13 +181,10 @@ class TrajectoryModelFull:
         rest = np.array(list(self.restaurants.keys()))
         sort = np.argsort(rest_counts)
         '''
-        print("PLATING TABLES...")
         for restaurant, dp in self.restaurants.items():
-            print(dp.z)
             if dp.num_customers > 0: # non leaf node
                 # Get ordered list of customers at the restuarant
                 customers = self.reservations[restaurant]
-                print(customers)
                 dp.update_tables_mh_full(self.X_list, self.y_list, self.lml, self.lml_params, customers, **mh_params)
 
                 # update K_{m, t} based on what is at table
@@ -275,8 +268,6 @@ class TrajectoryModelFull:
         return lml
 
     def print(self):
-        for restaurant, dp in self.restaurants.items(): 
-            print(restaurant, dp.base_dist.hyper_priors['noise'])
         for m in range(self.M):
             traj = ""
             for t in range(self.T[m]):
@@ -288,15 +279,16 @@ class TrajectoryModelFull:
         goes through one Gibbs sweep of all steps in the following order: seat, plate, update hypers
         '''
         # seat customers
+        print("SEATING CUSTOMERS")
         for i in range(n_seating):
             print("Seating iteration {}".format(i))
             self.seat_customers()
-#            print(self.total_lml())
         self.print()
 
         # plate tables
+        print("PLATING TABLES")
         self.plate_tables(mh_params)
-#        self.print()
+        self.print()
 
     def _form_leaves(self):
         self.leaves = {}

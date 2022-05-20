@@ -32,7 +32,7 @@ class MHSelection:
         self.X = X
         self.y = y
 
-    def sample(self, n_iters, burnin, hyper_proposal_variance = 0.1): 
+    def optimize(self, n_mh_iterations = 1000, mh_burnin = 0.4, hyper_proposal_variance = 0.1): 
         # MH samples
         structure_current = self.base_dist.get_structure(self.model) # start
         hypers_current = self.base_dist.get_full_hypers(self.model)
@@ -40,7 +40,7 @@ class MHSelection:
         samples = []
         posterior_likelihoods = []
         accepts = 0
-        for i in range(n_iters):
+        for i in range(n_mh_iterations):
             sample_struct, sample_hypers, accepted = self.sampler.sample(structure_current, hypers_current, self.target, 
                     hyper_proposal_variance = hyper_proposal_variance) # generate MH sample
             accepts += accepted
@@ -58,10 +58,10 @@ class MHSelection:
                 print("MH iteration {}, current structure {}, target {}".format(i, self.base_dist.to_string(samples[-1]), target))
 
         # Burn in 
-        burned_index = int(accepts * burnin)
+        burned_index = int(accepts * mh_burnin)
         burned_samples = samples[burned_index:]
         burned_likelihoods = posterior_likelihoods[burned_index:]
-        print("Num samples {}, Accept proportion: {}".format(len(samples), accepts * 1./n_iters))
+        print("Num samples {}, Accept proportion: {}".format(len(samples), accepts * 1./n_mh_iterations))
         # set new sample
         if len(samples) > 0: 
             sample = burned_samples[np.argmax(burned_likelihoods)] # MAP SAMPLE

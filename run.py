@@ -1,25 +1,25 @@
-import os
-import copy
-import sys
-import itertools
 import json
-import subprocess
-import socket
-import optparse
-
-from specify_experiment import run_experiment    
-
-#################################
-##       CONSTANTS             ##
-#################################
-RESULT_DIR = "./results/"
+from pathlib import Path
+import os
+import sys
+import csv
+import pickle
+import itertools
+#import trajectory_experiments
+#import pure_selection_experiments
+#import multitask_selection_experiments
 from experiment_settings.toy import TOY_PARAMS
 
+import optparse
+import numpy as np
+import tensorflow as tf
+
+from src.tools.base_kernels import initialize_base_kernels, polynomial_kernel_expansion
+from src.tools.experiments import get_real_data, get_toy_data, get_path_from_setting, get_user_data, get_data_stats
+from constants import KERNEL_POOL, HYPER_PRIORS_TOY, HYPER_PRIORS_SCALED, TOY_INCLUSION_PROB
 
 
-TMP_DIR = 'tmp'
-TEMPLATE = 'template.sh'
-DRYRUN = True
+import models
 
 def safe_zip(*args):
     if len(args) > 0:
@@ -29,449 +29,185 @@ def safe_zip(*args):
 
     return list(zip(*args))
 
-
-
-def main(EXP_TYPE = "", METHOD = "", DATA = ""):
-    # Create the directory where your results will go.
-    # In this directory you can make a sub-directory for each experiment you run.
-    # Experiments are listed in the 'QUEUE' variable above
-    QUEUE = []
-        QUEUE.append(
-            )
-    #####################################
-    ######## TOY KERNEL SELECTION########
-    #####################################
-    if DATA == "toy" and EXP_TYPE == "kernel-selection": 
-        try: 
-            experiment_settings = TOY_PARAMS[METHOD] 
-            output_dir = RESULT_DIR + "{}/{}".format(DATA, METHOD)
-        except e: 
-            print("Please run a valid toy experiment.")
-    elif DATA == ""
+def run_experiment(method, data, outdir, exp_kwargs):
+    '''
+    This is the function that will actually execute the job.
+    To use it, here's what you need to do:
+    1. Create directory 'exp_dir' as a function of 'exp_kwarg'.
+       This is so that each set of experiment+hyperparameters get their own directory.
+    2. Get your experiment's parameters from 'exp_kwargs'
+    3. Run your experiment
+    4. Store the results however you see fit in 'exp_dir'
+    '''
+    print('Running experiment with method {}, data {} output to {}...'.format(method, data, outdir))
     
-    method_name = "{}_kernel_selection_{}".format(METHOD, DATA)
+    try: 
+        seed = exp_kwargs["train_seed"]
+    except: 
+        print("Please make sure to define all necessary experiment parameters")
+ 
+    
+    # Set seed
+    np.random.seed(seed)
+    tf.random.set_seed(seed)
 
-    ####################################
-    ####### POLLUTANTS          ########
-    ####################################
-    elif EXP_TYPE == "kernel-selection" and METHOD == "cluster" and DATA == "pollutants":
-        OUTPUT_DIR = STORAGE_DIR + "icml/kernel-selection/pollutants/cluster"
-        method_name = "cluster_kernel_selection_pollutants"
-        QUEUE.append(
-            ('edit-uci', dict(
-                n_gibbs_iters = [200], # Method args
-                n_mh_iterations = [100],
-                n_seating = [10],
-                alpha = [1],
-                mh_hyper_proposal_variance = [0.05], 
-                component_inclusion_probability = [0.1],
-                interaction = [True],
-                train_seed = range(3), 
-                M = [12], # Data args 
-                chunk_size = [5],
-                data_seed = range(3)
-                )
-            ))
-    elif EXP_TYPE == "kernel-selection" and METHOD == "traj-full" and DATA == "pollutants":
-        OUTPUT_DIR = STORAGE_DIR + "icml/kernel-selection/pollutants/traj-full"
-        method_name = "traj_kernel_selection_pollutants_full"
-        QUEUE.append(
-            ('edit-uci', dict(
-                n_gibbs_iters = [200], # Method args
-                n_mh_iterations = [100],
-                n_seating = [10],
-                alpha = [1],
-                mh_hyper_proposal_variance = [0.05], 
-                component_inclusion_probability = [0.1],
-                parent_kernel_prob = [0.9], 
-                interaction = [True],
-                adapt_noise_prior = [True],
-                train_seed = range(3), 
-                M = [12], # Data args 
-                chunk_size = [5],
-                data_seed = range(3)
-                )
-            ))
-    elif EXP_TYPE == "kernel-selection" and METHOD == "traj" and DATA == "pollutants":
-        OUTPUT_DIR = STORAGE_DIR + "icml/kernel-selection/pollutants/traj"
-        method_name = "traj_kernel_selection_pollutants"
-        QUEUE.append(
-            ('edit-uci', dict(
-                n_gibbs_iters = [200], # Method args
-                n_mh_iterations = [100],
-                n_seating = [10],
-                alpha = [1],
-                mh_hyper_proposal_variance = [0.05], 
-                component_inclusion_probability = [0.1],
-                parent_kernel_prob = [0.9], 
-                interaction = [True],
-                adapt_noise_prior = [True],
-                train_seed = [1], 
-                M = [12], # Data args 
-                chunk_size = [5],
-                data_seed = [0]
-                )
-            ))
-    elif EXP_TYPE == "kernel-selection" and METHOD == "stratified" and DATA == "pollutants":
-        OUTPUT_DIR = STORAGE_DIR + "icml/kernel-selection/pollutants/stratified"
-        method_name = "stratified_kernel_selection_pollutants"
-        QUEUE.append(
-            ('edit-uci', dict(
-                n_gibbs_iters = [200], # Method args
-                n_mh_iterations = [100],
-                n_seating = [10],
-                alpha = [1],
-                mh_hyper_proposal_variance = [0.05], 
-                component_inclusion_probability = [0.1],
-                interaction = [True],
-                train_seed = range(3), 
-                M = [12], # Data args 
-                chunk_size = [5],
-                data_seed = range(3)
-                )
-            ))
-    elif EXP_TYPE == "kernel-selection" and METHOD == "ard" and DATA == "pollutants": 
-        OUTPUT_DIR = STORAGE_DIR + "icml/kernel-selection/pollutants/ard"
-        method_name = "ard_kernel_selection_pollutants"
-        QUEUE.append(
-            ('edit-uci', dict(
-                n_restarts = [1], 
-                hyper_proposal_variance = [0.05], 
-                prior = [True],
-                train_seed = range(3),
-                M = [24], # Data args 
-                chunk_size = [5],
-                user = range(24),
-                data_seed = [0]
-                )
-            ))
-    ####################################
-    ####### AIR                 ########
-    ####################################
-    elif EXP_TYPE == "kernel-selection" and METHOD == "cluster" and DATA == "air":
-        OUTPUT_DIR = STORAGE_DIR + "icml/kernel-selection/air/cluster"
-        method_name = "cluster_kernel_selection_air"
-        QUEUE.append(
-            ('uci', dict(
-                n_gibbs_iters = [200], # Method args
-                n_mh_iterations = [100],
-                n_seating = [10],
-                alpha = [1],
-                mh_hyper_proposal_variance = [0.05], 
-                component_inclusion_probability = [0.1],
-                interaction = [True],
-                train_seed = range(3), 
-                M = [12], # Data args 
-                chunk_size = [5],
-                data_seed = range(3)
-                )
-            ))
-    elif EXP_TYPE == "kernel-selection" and METHOD == "traj" and DATA == "air":
-        OUTPUT_DIR = STORAGE_DIR + "icml/kernel-selection/air/traj"
-        method_name = "traj_kernel_selection_air"
-        QUEUE.append(
-            ('uci', dict(
-                n_gibbs_iters = [200], # Method args
-                n_mh_iterations = [100],
-                n_seating = [10],
-                alpha = [1],
-                mh_hyper_proposal_variance = [0.05], 
-                component_inclusion_probability = [0.1],
-                parent_kernel_prob = [0.9], 
-                adapt_noise_prior = [True],
-                interaction = [True],
-                train_seed = range(3), 
-                M = [8], # Data args 
-                chunk_size = [5],
-                data_seed = range(3)
-                )
-            ))
-    elif EXP_TYPE == "kernel-selection" and METHOD == "traj-full" and DATA == "air":
-        OUTPUT_DIR = STORAGE_DIR + "icml/kernel-selection/air/traj-full"
-        method_name = "traj_kernel_selection_air_full"
-        QUEUE.append(
-            ('uci', dict(
-                n_gibbs_iters = [200], # Method args
-                n_mh_iterations = [100],
-                n_seating = [10],
-                alpha = [1],
-                mh_hyper_proposal_variance = [0.05], 
-                component_inclusion_probability = [0.1],
-                parent_kernel_prob = [0.9], 
-                adapt_noise_prior = [True],
-                interaction = [True],
-                train_seed = range(3), 
-                M = [8], # Data args 
-                chunk_size = [5],
-                data_seed = range(3)
-                )
-            ))
-    elif EXP_TYPE == "kernel-selection" and METHOD == "stratified" and DATA == "air":
-        OUTPUT_DIR = STORAGE_DIR + "icml/kernel-selection/air/stratified"
-        method_name = "stratified_kernel_selection_air"
-        QUEUE.append(
-            ('uci', dict(
-                n_gibbs_iters = [200], # Method args
-                n_mh_iterations = [100],
-                n_seating = [10],
-                alpha = [1],
-                mh_hyper_proposal_variance = [0.05], 
-                component_inclusion_probability = [0.1],
-                interaction = [True],
-                train_seed = range(3), 
-                M = [8], # Data args 
-                chunk_size = [5],
-                data_seed = range(3)
-                )
-            ))
-    elif EXP_TYPE == "kernel-selection" and METHOD == "ard" and DATA == "air": 
-        OUTPUT_DIR = STORAGE_DIR + "icml/kernel-selection/air/ard"
-        method_name = "ard_kernel_selection_air"
-        QUEUE.append(
-            ('uci', dict(
-                n_restarts = [1], 
-                hyper_proposal_variance = [0.05], 
-                prior = [True],
-                train_seed = range(3),
-                M = [12], # Data args 
-                chunk_size = [5],
-                user = range(12),
-                data_seed = [0]
-                )
-            ))
-    ####################################
-    ####### CHLORIDES           ########
-    ####################################
-    elif EXP_TYPE == "kernel-selection" and METHOD == "cluster" and DATA == "chlorides":
-        OUTPUT_DIR = STORAGE_DIR + "icml/kernel-selection/chlorides/cluster"
-        method_name = "cluster_kernel_selection_chlorides"
-        QUEUE.append(
-            ('edit-uci', dict(
-                n_gibbs_iters = [200], # Method args
-                n_mh_iterations = [100],
-                n_seating = [10],
-                alpha = [1],
-                mh_hyper_proposal_variance = [0.05], 
-                component_inclusion_probability = [0.1],
-                interaction = [True],
-                train_seed = range(3), 
-                M = [21], # Data args 
-                chunk_size = [5],
-                data_seed = range(3)
-                )
-            ))
-    elif EXP_TYPE == "kernel-selection" and METHOD == "traj-full" and DATA == "chlorides":
-        OUTPUT_DIR = STORAGE_DIR + "icml/kernel-selection/chlorides/traj-full"
-        method_name = "traj_kernel_selection_chlorides_full"
-        QUEUE.append(
-            ('edit-uci', dict(
-                n_gibbs_iters = [200], # Method args
-                n_mh_iterations = [100],
-                n_seating = [10],
-                alpha = [1],
-                mh_hyper_proposal_variance = [0.05], 
-                component_inclusion_probability = [0.1],
-                parent_kernel_prob = [0.9], 
-                adapt_noise_prior = [True],
-                interaction = [True],
-                train_seed = range(3), 
-                M = [8], # Data args 
-                chunk_size = [50],
-                data_seed = range(3)
-                )
-            ))
-    elif EXP_TYPE == "kernel-selection" and METHOD == "traj" and DATA == "chlorides":
-        OUTPUT_DIR = STORAGE_DIR + "icml/kernel-selection/chlorides/traj"
-        method_name = "traj_kernel_selection_chlorides"
-        QUEUE.append(
-            ('edit-uci', dict(
-                n_gibbs_iters = [200], # Method args
-                n_mh_iterations = [100],
-                n_seating = [10],
-                alpha = [1],
-                mh_hyper_proposal_variance = [0.05], 
-                component_inclusion_probability = [0.1],
-                parent_kernel_prob = [0.9], 
-                adapt_noise_prior = [True],
-                interaction = [True],
-                train_seed = range(3), 
-                M = [8], # Data args 
-                chunk_size = [50],
-                data_seed = range(3)
-                )
-            ))
-    elif EXP_TYPE == "kernel-selection" and METHOD == "stratified" and DATA == "chlorides":
-        OUTPUT_DIR = STORAGE_DIR + "icml/kernel-selection/chlorides/stratified"
-        method_name = "stratified_kernel_selection_chlorides"
-        QUEUE.append(
-            ('edit-uci', dict(
-                n_gibbs_iters = [200], # Method args
-                n_mh_iterations = [100],
-                n_seating = [10],
-                alpha = [1],
-                mh_hyper_proposal_variance = [0.05], 
-                component_inclusion_probability = [0.1],
-                interaction = [True],
-                train_seed = range(3), 
-                M = [8], # Data args 
-                chunk_size = [50],
-                data_seed = range(3)
-                )
-            ))
-    elif EXP_TYPE == "kernel-selection" and METHOD == "ard" and DATA == "chlorides": 
-        OUTPUT_DIR = STORAGE_DIR + "icml/kernel-selection/chlorides/ard"
-        method_name = "ard_kernel_selection_chlorides"
-        QUEUE.append(
-            ('edit-uci', dict(
-                n_restarts = [1], 
-                hyper_proposal_variance = [0.05], 
-                prior = [True],
-                train_seed = range(3),
-                M = [31], # Data args 
-                chunk_size = [5],
-                user = range(31),
-                data_seed = range(3)
-                )
-            ))
-    #####################################
-    ######## WINE                ########
-    #####################################
-    elif EXP_TYPE == "kernel-selection" and METHOD == "traj-full" and DATA == "wine":
-        OUTPUT_DIR = STORAGE_DIR + "icml/kernel-selection/wine/traj-full"
-        method_name = "traj_kernel_selection_wine_full"
-        QUEUE.append(
-            ('post-icml', dict(
-                n_gibbs_iters = [200], # Method args
-                n_mh_iterations = [100],
-                n_seating = [10],
-                alpha = [1],
-                mh_hyper_proposal_variance = [0.05], 
-                component_inclusion_probability = [0.1],
-                adapt_noise_prior = [True],
-                interaction = [True],
-                parent_kernel_prob = [0.9], 
-                train_seed = range(3), 
-                M = [21], # Data args 
-                chunk_size = [50],
-                data_seed = range(3)
-                )
-            ))
-    elif EXP_TYPE == "kernel-selection" and METHOD == "traj" and DATA == "wine":
-        OUTPUT_DIR = STORAGE_DIR + "icml/kernel-selection/wine/traj"
-        method_name = "traj_kernel_selection_wine"
-        QUEUE.append(
-            ('post-icml', dict(
-                n_gibbs_iters = [200], # Method args
-                n_mh_iterations = [100],
-                n_seating = [10],
-                alpha = [1],
-                mh_hyper_proposal_variance = [0.05], 
-                component_inclusion_probability = [0.1],
-                adapt_noise_prior = [True],
-                interaction = [True],
-                parent_kernel_prob = [0.9], 
-                train_seed = range(3), 
-                M = [8], # Data args 
-                chunk_size = [50],
-                data_seed = range(3)
-                )
-            ))
-    elif EXP_TYPE == "kernel-selection" and METHOD == "cluster" and DATA == "wine":
-        OUTPUT_DIR = STORAGE_DIR + "icml/kernel-selection/wine/cluster"
-        method_name = "cluster_kernel_selection_wine"
-        QUEUE.append(
-            ('post-icml', dict(
-                n_gibbs_iters = [200], # Method args
-                n_mh_iterations = [100],
-                n_seating = [10],
-                alpha = [1],
-                mh_hyper_proposal_variance = [0.05], 
-                component_inclusion_probability = [0.1],
-                interaction = [True],
-                train_seed = [0], 
-                M = [21], # Data args 
-                chunk_size = [5],
-                data_seed = [0,1]
-                )
-            ))
-    elif EXP_TYPE == "kernel-selection" and METHOD == "stratified" and DATA == "wine":
-        OUTPUT_DIR = STORAGE_DIR + "icml/kernel-selection/wine/stratified"
-        method_name = "stratified_kernel_selection_wine"
-        QUEUE.append(
-            ('post-icml', dict(
-                n_gibbs_iters = [200], # Method args
-                n_mh_iterations = [100],
-                n_seating = [10],
-                alpha = [1],
-                mh_hyper_proposal_variance = [0.05], 
-                component_inclusion_probability = [0.1],
-                interaction = [True],
-                train_seed = range(3), 
-                M = [8], # Data args 
-                chunk_size = [50],
-                data_seed = range(3)
-                )
-            ))
-    elif EXP_TYPE == "kernel-selection" and METHOD == "mh" and DATA == "wine":
-        OUTPUT_DIR = HOME_DIR + "icml/kernel-selection/wine/mh"
-        method_name = "mh_kernel_selection_wine"
-        QUEUE.append(
-            ('stricter', dict(
-                n_iters = [10000], # Method args
-                hyper_proposal_variance = [0.05],
-                component_inclusion_probability = [0.05],
-                train_seed = range(3),   
-                M = [12], # Data args 
-                chunk_size = [50],
-                user = range(12),
-                data_seed = [0]
-            ))
-        )
-    elif EXP_TYPE == "kernel-selection" and METHOD == "ard" and DATA == "wine": 
-        OUTPUT_DIR = HOME_DIR + "icml/kernel-selection/wine/ard"
-        method_name = "ard_kernel_selection_wine"
-        QUEUE.append(
-            ('post-icml', dict(
-                n_restarts = [1], 
-                hyper_proposal_variance = [0.05], 
-                prior = [True],
-                train_seed = range(3),
-                M = [31], # Data args 
-                chunk_size = [5],
-                user = range(31),
-                data_seed = range(3)
-                )
-            ))
+    
+   
+    # Get data set, base distribution args, hyperpriors
+    if data == "toy": 
+        X_list, y_list, users, exp_kwargs, _ = get_toy_data(data, exp_kwargs) # generate synthetic data
+        hyper_priors = HYPER_PRIORS_TOY
+       
+        # base distribution args
+        base_kernels = initialize_base_kernels(X_list[(0,0)], scaling_parameter = True, hyper_priors = hyper_priors)
+        kernel_components = np.array(polynomial_kernel_expansion(base_kernels, 2, scaling_parameter = True)) # product kernels (up to order 2)
+        p = TOY_INCLUSION_PROB
+
     else: 
-        raise ValueError("Please enter a valid experiment type.")
+        if data == "air" or data == "pollutants":
+            X_list, y_list, users, exp_kwargs = get_real_data(method_name, exp_kwargs, data_dir =  "./data/uci/{}/".format(data), scaleall = True, shuffle = False) # ordering matters
+        else: 
+            X_list, y_list, users, exp_kwargs = get_real_data(method_name, exp_kwargs, data_dir = REPO_DIR + "data/uci/{}/".format(data), scaleall = True, shuffle = True) # no time
+        
+        hyper_priors = HYPER_PRIORS_SCALED
+
+        M, T = get_data_stats(X_list) 
+        X_all = np.vstack([X_list[(m, T[m] - 1)] for m in range(M)])
+        kernel_components = KERNEL_POOL[dataset](X_all, trainable = True, rescale = False, hyper_priors = hyper_priors, interaction = exp_kwargs['interaction'])
+    n_dimensions = X_list[(0,0)].shape[1]
+
+    # Make output path for this experiment
+    outdir = get_path_from_setting(method, data, exp_kwargs, users, outdir)
+    Path(outdir).mkdir(parents=True, exist_ok=True) 
+
+    # Create the model
+    if method == "evolution": 
+        # Get evolution specific parameters
+        try: 
+            alpha = exp_kwargs['alpha']
+            parent_kernel_prob = exp_kwargs['parent_kernel_prob']
+            adapt_noise_prior = exp_kwargs['adapt_noise_prior']
+
+        except: 
+            print("Please specify all evolution relevant parameters")
+
+        
+        # Create model
+        model = models.create_evolution_model(X_list, y_list,
+            seed = seed, # Defined above
+            p = p, 
+            kernel_components = kernel_components, 
+            n_dimensions = n_dimensions,
+            hyper_priors = hyper_priors,
+            alpha = alpha, # Evolution specific
+            parent_kernel_prob = parent_kernel_prob, 
+            adapt_noise_prior = adapt_noise_prior)
     
-    if not os.path.exists(OUTPUT_DIR):
-        os.makedirs(OUTPUT_DIR)
+    elif method == "stratified":
+        # Get specific parameters
+        try: 
+            alpha = exp_kwargs['alpha']
+        except: 
+            print("Please specify all final relevant parameters")
+    
+        # Create model
+        model = models.create_stratified_model(X_list, y_list, 
+            seed = seed, # Defined above
+            p = p, 
+            kernel_components = kernel_components, 
+            n_dimensions = n_dimensions,
+            hyper_priors = hyper_priors,
+            alpha = alpha)
 
-    # Create a temporary directory for the slurm scripts
-    # that are automatically generated by this script
-    if not os.path.exists(TMP_DIR):
-        os.makedirs(TMP_DIR)
+    elif method == "final": 
+        # Get final specific parameters
+        try: 
+            alpha = exp_kwargs['alpha']
+        except: 
+            print("Please specify all final relevant parameters")
+        
+        # Create model
+        model = models.create_final_model(X_list, y_list, 
+            seed = seed,
+            p = p, 
+            kernel_components = kernel_components, 
+            n_dimensions = n_dimensions,
+            hyper_priors = hyper_priors,
+            alpha = alpha) 
+    elif method == "memoryless":
+        try: 
+            opt_params = {
+                    'n_mh_iterations': exp_kwargs['n_mh_iterations'],
+                    'mh_burnin': exp_kwargs['mh_burnin'],
+                    'hyper_proposal_variance': exp_kwargs['hyper_proposal_variance']
 
-    # Read in the template so we can modify it programmatically
-    with open(TEMPLATE, 'r') as f:
-        template = f.read()
+                    }
+        except: 
+            print("Please specify memoryless optimization parameters")
+        model = models.create_memoryless_model(X_list, y_list, 
+                kernel_components = kernel_components,
+                p = p, 
+                hyper_priors = hyper_priors,
+                n_dimensions = n_dimensions,
+                seed = seed)
 
-    # For each experiment, create a job for every combination of parameters
-    for experiment_name, params in QUEUE:
-        for vals in itertools.product(*list(params.values())):
-            exp_kwargs = dict(safe_zip(params.keys(), vals))
-            run_experiment(method_name, OUTPUT_DIR, template, experiment_name, exp_kwargs)
+    else: # method is ARD
+        model = models.create_ard_model(X_list, y_list, hyper_priors = hyper_priors)
+        try: 
+            opt_params = {
+                    'n_restarts': exp_kwargs['n_restarts'],
+                    'hyper_proposal_variance': exp_kwargs['hyper_proposal_variance']
+                    }
+        except: 
+            print("Please specify ARD optimization parameters")
+
+    # Run experiment
+    print("Running experiment...")
+    if method == "evolution" or method == "stratified" or method == "final":
+        # Get meta-model parameters
+        try: 
+            mh_burnin = exp_kwargs['mh_burnin']
+            n_mh_iterations = exp_kwargs['n_mh_iterations']
+            mh_hyper_proposal_variance = exp_kwargs['mh_hyper_proposal_variance']
+            n_gibbs_iters = exp_kwargs['n_gibbs_iters']
+            n_seating = exp_kwargs['n_seating']
+        except: 
+            print("Please specify all meta-model relevant parameters")
+        mh_params = {'burnin':mh_burnin, 'num_iterations':n_mh_iterations, 'hyper_proposal_variance':mh_hyper_proposal_variance}
+        
+        # Meta-training 
+        models.train_meta_model(model, outdir, n_gibbs_iters = n_gibbs_iters, n_seating = n_seating, mh_params = mh_params)
+    elif method == "ard" or method == "memoryless": 
+        try: 
+            user  = exp_kwargs['user']
+        except: 
+            print("Make sure to specify a user for the single task methods.")
+        models.predict_test_user(model, X_list, y_list, user,  opt_params, outdir)
+
 
 if __name__ == '__main__':
     p = optparse.OptionParser()
-    p.add_option('--experiment', '-e', default = "kernel-selection")
     p.add_option('--method', '-m')
     p.add_option('--data', '-d')
     
+    # Get args
     (opt, args) = p.parse_args()
-    print(opt, " ", args)
     if opt.method is None or opt.data is None: 
         print("Correct usage is python submit_batch.py -n <method> -d <data>")
+    data = opt.data 
+    method = opt.method
 
-    main(EXP_TYPE = opt.experiment, METHOD =opt.method, DATA = opt.data)
+    # Get output dir
+    outdir = "results/{}/{}/".format(method, data)
+    
+    # Get experiment settings 
+    try:
+        if data == "toy": 
+            params = TOY_PARAMS[method]
+    except: 
+            print("Please specify a valid experiment.")
+
+    # For each experiment, create a job for every combination of parameters
+    for vals in itertools.product(*list(params.values())):
+        exp_kwargs = dict(safe_zip(params.keys(), vals))
+        run_experiment(method, data, outdir, exp_kwargs)

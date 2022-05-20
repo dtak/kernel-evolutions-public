@@ -56,7 +56,6 @@ class StratifiedModel:
         for t in range(self.T_max):
             customers = [(m, t) for m in range(self.M) if self.T[m] > t] # data sets who have at least this many time steps
             self.reservations[t] = customers
-            print("Level {}: {}".format(t, customers))
 
             # sample random parameters for each table
             base_distribution = base_distribution_constructor(**self.base_distribution_args)
@@ -82,7 +81,6 @@ class StratifiedModel:
         '''
         assigns customers to tables
         '''
-        print("SEATING CUSTOMERS")
         for t in range(self.T_max):
             dp = self.restaurants[t]
             customers = self.reservations[t]
@@ -114,12 +112,9 @@ class StratifiedModel:
         updates the composition at each table based on who is sitting there
         MH-sampler
         '''
-        print("PLATING TABLES...")
         for t in range(self.T_max):
             dp = self.restaurants[t]
             customers = self.reservations[t]
-            print(dp.z)
-            print(customers)
             dp.update_tables_mh(self.X_list, self.y_list, self.lml, self.lml_params, customers, **mh_params)
 
             # update K_{m, t} based on what is at table
@@ -162,15 +157,16 @@ class StratifiedModel:
         goes through one Gibbs sweep of all steps in the following order: seat, plate, update hypers
         '''
         # seat customers
+        print("SEATING CUSTOMERS")
         for i in range(n_seating):
             print("Seating iteration {}".format(i))
             self.seat_customers()
-#            print(self.total_lml())
         self.print()
 
         # plate tables
+        print("PLATING TABLES")
         self.plate_tables(mh_params)
-#        self.print()
+        self.print()
     
     def select_model(self, X, y, t, learn_hypers = False, validation = None):
         lmls = []

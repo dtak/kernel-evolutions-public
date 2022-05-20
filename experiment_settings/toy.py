@@ -1,7 +1,8 @@
 TOY_PARAMS = {
-        'evolution': ('toy-evolution', dict(
+        'evolution':  dict(
             n_gibbs_iters = [400], # Method args
             n_mh_iterations = [100],
+            mh_burnin = [0.4],
             n_seating = [10],
             alpha = [1],
             adapt_noise_prior = [True],
@@ -11,12 +12,13 @@ TOY_PARAMS = {
             M = [10], # Data args 
             noise = [0.5], 
             data_seed = range(3),
-            ground_kernel = ["simpsamp"],
+            ground_kernel = ["distinct", "similar"],
             num_per_timestep = [[5 for i in range(6)]]
-            )), 
-        'final': ('toy-final', dict(
+        ), 
+        'final':  dict(
                 n_gibbs_iters = [400], # Method args
                 n_mh_iterations = [100],
+                mh_burnin = [0.4],
                 n_seating = [10],
                 alpha = [1],
                 mh_hyper_proposal_variance = [0.1], 
@@ -25,12 +27,13 @@ TOY_PARAMS = {
                 M = [10], # Data args 
                 noise = [0.5], 
                 data_seed = range(3),
-                ground_kernel = ["complex"],
+                ground_kernel = ["distinct", "similar"],
                 num_per_timestep = [[5 for i in range(6)]]
-                )),
-        'stratified': ('toy-stratified', dict(
+                ),
+        'stratified': dict(
                 n_gibbs_iters = [400], # Method args
                 n_mh_iterations = [100],
+                mh_burnin = [0.4],
                 n_seating = [10],
                 alpha = [1],
                 adapt_noise_prior = [False],
@@ -39,33 +42,32 @@ TOY_PARAMS = {
                 M = [10], # Data args 
                 noise = [0.5], 
                 data_seed = range(3),
-                ground_kernel = ["sim1"],
+                ground_kernel = ["distinct"],
                 num_per_timestep = [[5 for i in range(6)]]
-                )), 
-        'mh': ('toy-mh', dict(
-                n_iters = [10000], # Method args
+                ), 
+        'memoryless': dict(
+                n_mh_iterations = [10000], # Method args
+                mh_burnin = [0.4],
                 hyper_proposal_variance = [0.1], 
-                train_seed = [2], 
+                train_seed = range(3), 
                 M = [50], # Data args 
                 noise = [0.5], 
                 data_seed = [1000],
-                user = [6, 16],
+                user = range(50),
                 adapt_noise_prior = [False],
-                ground_kernel = ["sim1"],
+                ground_kernel = ["distinct"],
                 num_per_timestep = [[5 for i in range(6)]]
-                )),
-        'ard': 
-            ('toy-ard', dict(
+               ),
+        'ard': dict(
                 n_restarts = [1], 
                 hyper_proposal_variance = [0.1], 
-                prior = [True],
                 train_seed = range(3),
                 M = [50], # Data args 
                 user = range(50),
                 adapt_noise_prior = [False],
                 noise = [0.5], 
                 data_seed = [1000],
-                ground_kernel = ["sim1"],
+                ground_kernel = ["distinct"],
                 num_per_timestep = [[5 for i in range(6)]]
-                ))
+                )
         }
