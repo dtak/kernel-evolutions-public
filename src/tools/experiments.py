@@ -265,7 +265,7 @@ def get_toy_data(method_name, exp_kwargs):
         del exp_kwargs['num_per_timestep']
 
     data = (X_list, y_list, f_list, y_test_list, total_lml)
-    pickle.dump(data, open("data/tasks-{}-timesteps-{}-noise-{}-seed-{}.pickle".format(M, T, ground_sigma, seed), "wb"))
+    pickle.dump(data, open("data/toy/tasks-{}-timesteps-{}-noise-{}-seed-{}.pickle".format(M, T, ground_sigma, seed), "wb"))
     return X_list, y_list, [], exp_kwargs, y_test_list
 
 

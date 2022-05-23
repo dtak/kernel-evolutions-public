@@ -2,7 +2,7 @@ from .DirichletProcess import MHSampler
 import numpy as np
 import tensorflow as tf
 from gpflow.utilities import print_summary
-class MHSelection:
+class Memoryless:
     def __init__(self, X, y, base_dist, likelihood = None, likelihood_params = None, seed = 0): 
         self.X = X
         self.y = y

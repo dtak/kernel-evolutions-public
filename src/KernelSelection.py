@@ -395,7 +395,6 @@ class MultinomialKernels:
             hypers.append(distributions[i].sample().numpy())
 
         hypers.append(noise_dist.sample().numpy())
-        # TODO: eura make sure this isn't nested!
         return np.array(hypers)
 
 

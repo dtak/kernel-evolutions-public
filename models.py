@@ -14,7 +14,7 @@ from gpflow.utilities import print_summary, to_default_float
 from src.TrajectoryModel import TrajectoryModel
 from src.StratifiedModel import StratifiedModel
 from src.ARD import ARD
-from src.MHSelection import MHSelection
+from src.Memoryless import Memoryless
 from src.tools.utils import get_data_stats
 from src.tools.experiments import get_data_stats
 
@@ -142,7 +142,7 @@ def create_memoryless_model(X_list, y_list,
         n_dimensions = None,
         seed = 0):
     base_dist =  MultinomialKernels(components = kernel_components, p = p, hyper_priors = hyper_priors, n_dimensions = n_dimensions)
-    model = MHSelection(X_list[(0,0)], y_list[(0,0)], # data will get updated incrementally as observed
+    model = Memoryless(X_list[(0,0)], y_list[(0,0)], # data will get updated incrementally as observed
             base_dist, likelihood = kernel_likelihood, 
             likelihood_params = {'heartsteps': False, 'mean_function':gpf.mean_functions.Zero()}, seed = seed)
     return model
